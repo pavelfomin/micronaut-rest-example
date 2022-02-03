@@ -1,5 +1,7 @@
 # Micronaut example with REST and data JPA
 
+See [spring-boot-rest-example](https://github.com/pavelfomin/spring-boot-rest-example) for `Spring Boot` implementation.
+
 Initial project was generated using https://micronaut.io/launch/.
 
 ## Running tests
