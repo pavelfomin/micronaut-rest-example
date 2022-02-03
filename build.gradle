@@ -1,9 +1,13 @@
+import java.time.Instant
+
 plugins {
     id("com.github.johnrengelman.shadow") version "7.1.1"
     id("io.micronaut.application") version "3.2.0"
+//  com.pasam.gradle.buildinfo requires com.gorylenko.gradle-git-properties
+//  both of them provide way more details than needed
+//    id "com.gorylenko.gradle-git-properties" version "2.3.2"
+//    id "com.pasam.gradle.buildinfo" version "0.1.3"
 }
-
-group = "com.droidablebee"
 
 repositories {
     mavenCentral()
@@ -17,6 +21,9 @@ dependencies {
     implementation("io.micronaut:micronaut-jackson-databind")
     implementation("io.micronaut:micronaut-runtime")
 
+    //management endpoints
+    implementation("io.micronaut:micronaut-management")
+
     implementation("io.micronaut.data:micronaut-data-hibernate-jpa")
     implementation("io.micronaut.sql:micronaut-jdbc-hikari")
 
@@ -28,6 +35,7 @@ dependencies {
 
     testImplementation 'com.jayway.jsonpath:json-path:2.4.0'
     testImplementation 'org.hamcrest:hamcrest:2.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.8.1'
 }
 
 application {
@@ -56,3 +64,23 @@ task printVersion {
     }
 }
 
+task buildInfo {
+    dependsOn(JavaPlugin.PROCESS_RESOURCES_TASK_NAME)
+    doLast {
+        File file = new File(project.tasks.findByName(
+                JavaPlugin.PROCESS_RESOURCES_TASK_NAME).destinationDir,
+                'META-INF/build-info.properties')
+        println "Generating $file"
+        file.getParentFile().mkdirs()
+        file.createNewFile()
+        file.withWriter('UTF-8') { writer ->
+            writer.writeLine("build.name = ${project.name}")
+            writer.writeLine("build.group = ${project.group}")
+            writer.writeLine("build.version = ${project.version}")
+            writer.writeLine("build.time = ${Instant.now()}")
+        }
+        println "Added the following properties to $file:\n$file.text"
+    }
+}
+
+project.tasks.findByName(JavaPlugin.CLASSES_TASK_NAME).dependsOn(buildInfo)

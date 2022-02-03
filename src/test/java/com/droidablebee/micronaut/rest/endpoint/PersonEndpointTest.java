@@ -31,9 +31,10 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @MicronautTest
-public class PersonEndpointTest /*extends BaseEndpointTest*/ {
+class PersonEndpointTest /*extends BaseEndpointTest*/ {
 
     @Inject
     @Client("/")
@@ -52,7 +53,7 @@ public class PersonEndpointTest /*extends BaseEndpointTest*/ {
     private long timestamp;
 
     @BeforeEach
-    public void beforeEach() {
+    void beforeEach() {
 
         timestamp = new Date().getTime();
 
@@ -84,7 +85,7 @@ public class PersonEndpointTest /*extends BaseEndpointTest*/ {
     }
 
     //	@Test
-//	public void getPersonByIdUnauthorizedNoToken() throws Exception {
+//	 void getPersonByIdUnauthorizedNoToken() throws Exception {
 //		Long id = testPerson.getId();
 //
 //		mockMvc.perform(get("/v1/person/{id}", id))
@@ -94,7 +95,7 @@ public class PersonEndpointTest /*extends BaseEndpointTest*/ {
 //	}
 
 //	@Test
-//	public void getPersonByIdForbiddenInvalidScope() throws Exception {
+//	 void getPersonByIdForbiddenInvalidScope() throws Exception {
 //		Long id = testPerson.getId();
 //
 //		mockMvc.perform(get("/v1/person/{id}", id).with(jwt()))
@@ -104,7 +105,7 @@ public class PersonEndpointTest /*extends BaseEndpointTest*/ {
 //	}
 
     @Test
-    public void getPersonById() {
+    void getPersonById() {
 
         Long id = testPerson.getId();
 
@@ -112,6 +113,7 @@ public class PersonEndpointTest /*extends BaseEndpointTest*/ {
         HttpResponse<String> response = client.toBlocking().exchange(HttpRequest.GET(uri), String.class);
 
         assertEquals(HttpStatus.OK, response.getStatus());
+        assertTrue(response.getContentType().isPresent());
         assertEquals(MediaType.APPLICATION_JSON_TYPE, response.getContentType().get());
 
         ReadContext ctx = JsonPath.parse(response.body());
@@ -124,7 +126,7 @@ public class PersonEndpointTest /*extends BaseEndpointTest*/ {
     }
 
     @Test
-    public void getAllWithDefaultPageAndSize() {
+    void getAllWithDefaultPageAndSize() {
 
         Pageable pageable = Pageable.from(0);
         Page<Person> persons = personService.findAll(pageable);
@@ -132,13 +134,14 @@ public class PersonEndpointTest /*extends BaseEndpointTest*/ {
         HttpResponse<String> response = client.toBlocking().exchange(HttpRequest.GET(PersonEndpoint.GET_ALL), String.class);
 
         assertEquals(HttpStatus.OK, response.getStatus());
+        assertTrue(response.getContentType().isPresent());
         assertEquals(MediaType.APPLICATION_JSON_TYPE, response.getContentType().get());
 
         assertPage(JsonPath.parse(response.body()), pageable, PageableConfiguration.DEFAULT_MAX_PAGE_SIZE, persons);
     }
 
     @Test
-    public void getAllWithCustomSize() {
+    void getAllWithCustomSize() {
 
         Pageable pageable = Pageable.from(0, 2);
         Page<Person> persons = personService.findAll(pageable);
@@ -150,13 +153,14 @@ public class PersonEndpointTest /*extends BaseEndpointTest*/ {
         HttpResponse<String> response = client.toBlocking().exchange(HttpRequest.GET(uri), String.class);
 
         assertEquals(HttpStatus.OK, response.getStatus());
+        assertTrue(response.getContentType().isPresent());
         assertEquals(MediaType.APPLICATION_JSON_TYPE, response.getContentType().get());
 
         assertPage(JsonPath.parse(response.body()), pageable, pageable.getSize(), persons);
     }
 
     @Test
-    public void getAllWithCustomPageAndSize() {
+    void getAllWithCustomPageAndSize() {
 
         Pageable pageable = Pageable.from(1, 2);
         Page<Person> persons = personService.findAll(pageable);
@@ -169,6 +173,7 @@ public class PersonEndpointTest /*extends BaseEndpointTest*/ {
         HttpResponse<String> response = client.toBlocking().exchange(HttpRequest.GET(uri), String.class);
 
         assertEquals(HttpStatus.OK, response.getStatus());
+        assertTrue(response.getContentType().isPresent());
         assertEquals(MediaType.APPLICATION_JSON_TYPE, response.getContentType().get());
 
         assertPage(JsonPath.parse(response.body()), pageable, pageable.getSize(), persons);
