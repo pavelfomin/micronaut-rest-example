@@ -1,6 +1,24 @@
 micronaut:
   application:
     name: micronaut-rest-example
+  http:
+#    services:
+#      exception-on-error-status: false
+    client:
+      exception-on-error-status: false
+
+endpoints:
+  all.path: /management
+  info:
+    sensitive: false
+  health:
+#    details-visible: ANONYMOUS
+  env:
+    enabled: true
+  loggers:
+    enabled: true
+#    write-sensitive: false
+
 datasources:
   default:
     url: jdbc:h2:mem:devDb;LOCK_TIMEOUT=10000;DB_CLOSE_ON_EXIT=FALSE
@@ -9,7 +27,9 @@ datasources:
     password: ''
     schema-generate: CREATE_DROP
     dialect: H2
+
 jpa.default.properties.hibernate.hbm2ddl.auto: update
+
 netty:
   default:
     allocator:
