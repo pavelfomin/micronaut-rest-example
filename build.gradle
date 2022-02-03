@@ -65,7 +65,7 @@ task printVersion {
 }
 
 task buildInfo {
-//    dependsOn(JavaPlugin.PROCESS_RESOURCES_TASK_NAME)
+    dependsOn(JavaPlugin.PROCESS_RESOURCES_TASK_NAME)
     doLast {
         File file = new File(project.tasks.findByName(
                 JavaPlugin.PROCESS_RESOURCES_TASK_NAME).destinationDir,
