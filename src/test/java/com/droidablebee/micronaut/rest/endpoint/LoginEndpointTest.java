@@ -19,6 +19,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.text.ParseException;
 import java.util.stream.Stream;
 
+import static com.droidablebee.micronaut.rest.security.AuthenticationProviderUserPassword.USER_WITHOUT_ROLES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -29,8 +30,8 @@ class LoginEndpointTest extends BaseEndpointTest {
     @Test
     void login() throws ParseException {
 
-        BearerAccessRefreshToken bearerAccessRefreshToken = loginAndAssert(new UsernamePasswordCredentials(username, password));
-        assertTrue(JWTParser.parse(bearerAccessRefreshToken.getAccessToken()) instanceof SignedJWT);
+        BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITHOUT_ROLES));
+        assertTrue(JWTParser.parse(refreshToken.getAccessToken()) instanceof SignedJWT);
     }
 
     @ParameterizedTest

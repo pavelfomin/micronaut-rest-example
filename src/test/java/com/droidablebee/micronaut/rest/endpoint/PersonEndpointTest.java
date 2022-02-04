@@ -5,6 +5,7 @@ import com.droidablebee.micronaut.rest.repository.PersonRepository;
 import com.droidablebee.micronaut.rest.service.PersonService;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.ReadContext;
+import io.micronaut.core.type.Argument;
 import io.micronaut.data.model.Page;
 import io.micronaut.data.model.Pageable;
 import io.micronaut.data.runtime.config.DataConfiguration.PageableConfiguration;
@@ -12,9 +13,8 @@ import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MediaType;
-import io.micronaut.http.client.HttpClient;
-import io.micronaut.http.client.annotation.Client;
 import io.micronaut.http.uri.UriBuilder;
+import io.micronaut.security.token.jwt.render.BearerAccessRefreshToken;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.AfterEach;
@@ -25,6 +25,9 @@ import javax.persistence.EntityManager;
 import java.net.URI;
 import java.util.Date;
 
+import static com.droidablebee.micronaut.rest.endpoint.PersonEndpoint.GET_ALL;
+import static com.droidablebee.micronaut.rest.security.AuthenticationProviderUserPassword.USER_WITHOUT_ROLES;
+import static com.droidablebee.micronaut.rest.security.AuthenticationProviderUserPassword.USER_WITH_READ_ROLE;
 import static java.util.Collections.singletonMap;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -34,11 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @MicronautTest
-class PersonEndpointTest /*extends BaseEndpointTest*/ {
-
-    @Inject
-    @Client("/")
-    HttpClient client;
+class PersonEndpointTest extends BaseEndpointTest {
 
     @Inject
     EntityManager entityManager;
@@ -84,33 +83,66 @@ class PersonEndpointTest /*extends BaseEndpointTest*/ {
         personRepository.deleteAll();
     }
 
-    //	@Test
-//	 void getPersonByIdUnauthorizedNoToken() throws Exception {
-//		Long id = testPerson.getId();
-//
-//		mockMvc.perform(get("/v1/person/{id}", id))
-//				.andDo(print())
-//				.andExpect(status().isUnauthorized())
-//		;
-//	}
+    /**
+     * See https://micronaut-projects.github.io/micronaut-security/latest/guide/#rejectNotFound
+     */
+    @Test
+    void getPersonInvalidRoute() {
 
-//	@Test
-//	 void getPersonByIdForbiddenInvalidScope() throws Exception {
-//		Long id = testPerson.getId();
-//
-//		mockMvc.perform(get("/v1/person/{id}", id).with(jwt()))
-//				.andDo(print())
-//				.andExpect(status().isForbidden())
-//		;
-//	}
+        HttpResponse<String> response = client.toBlocking().exchange(
+                HttpRequest.GET(GET_ALL + "invalid"),
+                Argument.of(String.class),
+                Argument.of(String.class)
+        );
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatus());
+    }
+
+    @Test
+    void getPersonByIdUnauthorizedNoToken() {
+
+        Long id = testPerson.getId();
+
+        URI uri = UriBuilder.of(PersonEndpoint.BY_ID).expand(singletonMap(PersonEndpoint.ID, id));
+        HttpResponse<String> response = client.toBlocking().exchange(
+                HttpRequest.GET(uri),
+                Argument.of(String.class),
+                Argument.of(String.class)
+        );
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatus());
+    }
+
+    @Test
+    void getPersonByIdForbiddenInvalidScope() {
+
+        Long id = testPerson.getId();
+
+        BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITHOUT_ROLES));
+
+        URI uri = UriBuilder.of(PersonEndpoint.BY_ID).expand(singletonMap(PersonEndpoint.ID, id));
+        HttpResponse<String> response = client.toBlocking().exchange(
+                HttpRequest.GET(uri).bearerAuth(refreshToken.getAccessToken()),
+                Argument.of(String.class),
+                Argument.of(String.class)
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatus());
+    }
 
     @Test
     void getPersonById() {
 
         Long id = testPerson.getId();
 
-        URI uri = UriBuilder.of(PersonEndpoint.GET_BY_ID).expand(singletonMap(PersonEndpoint.ID, id));
-        HttpResponse<String> response = client.toBlocking().exchange(HttpRequest.GET(uri), String.class);
+        BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITH_READ_ROLE));
+
+        URI uri = UriBuilder.of(PersonEndpoint.BY_ID).expand(singletonMap(PersonEndpoint.ID, id));
+        HttpResponse<String> response = client.toBlocking().exchange(
+                HttpRequest.GET(uri).bearerAuth(refreshToken.getAccessToken()),
+                Argument.of(String.class),
+                Argument.of(String.class)
+        );
 
         assertEquals(HttpStatus.OK, response.getStatus());
         assertTrue(response.getContentType().isPresent());
@@ -131,7 +163,12 @@ class PersonEndpointTest /*extends BaseEndpointTest*/ {
         Pageable pageable = Pageable.from(0);
         Page<Person> persons = personService.findAll(pageable);
 
-        HttpResponse<String> response = client.toBlocking().exchange(HttpRequest.GET(PersonEndpoint.GET_ALL), String.class);
+        BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITH_READ_ROLE));
+
+        HttpResponse<String> response = client.toBlocking().exchange(
+                HttpRequest.GET(GET_ALL).bearerAuth(refreshToken.getAccessToken()),
+                String.class
+        );
 
         assertEquals(HttpStatus.OK, response.getStatus());
         assertTrue(response.getContentType().isPresent());
@@ -146,11 +183,16 @@ class PersonEndpointTest /*extends BaseEndpointTest*/ {
         Pageable pageable = Pageable.from(0, 2);
         Page<Person> persons = personService.findAll(pageable);
 
-        URI uri = UriBuilder.of(PersonEndpoint.GET_ALL)
+        BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITH_READ_ROLE));
+
+        URI uri = UriBuilder.of(GET_ALL)
                 .queryParam(PageableConfiguration.DEFAULT_SIZE_PARAMETER, pageable.getSize())
                 .build();
 
-        HttpResponse<String> response = client.toBlocking().exchange(HttpRequest.GET(uri), String.class);
+        HttpResponse<String> response = client.toBlocking().exchange(
+                HttpRequest.GET(uri).bearerAuth(refreshToken.getAccessToken()),
+                String.class
+        );
 
         assertEquals(HttpStatus.OK, response.getStatus());
         assertTrue(response.getContentType().isPresent());
@@ -165,12 +207,17 @@ class PersonEndpointTest /*extends BaseEndpointTest*/ {
         Pageable pageable = Pageable.from(1, 2);
         Page<Person> persons = personService.findAll(pageable);
 
-        URI uri = UriBuilder.of(PersonEndpoint.GET_ALL)
+        BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITH_READ_ROLE));
+
+        URI uri = UriBuilder.of(GET_ALL)
                 .queryParam(PageableConfiguration.DEFAULT_PAGE_PARAMETER, pageable.getNumber())
                 .queryParam(PageableConfiguration.DEFAULT_SIZE_PARAMETER, pageable.getSize())
                 .build();
 
-        HttpResponse<String> response = client.toBlocking().exchange(HttpRequest.GET(uri), String.class);
+        HttpResponse<String> response = client.toBlocking().exchange(
+                HttpRequest.GET(uri).bearerAuth(refreshToken.getAccessToken()),
+                String.class
+        );
 
         assertEquals(HttpStatus.OK, response.getStatus());
         assertTrue(response.getContentType().isPresent());

@@ -13,12 +13,15 @@ import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Header;
 import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Put;
+import io.micronaut.security.annotation.Secured;
+import io.micronaut.security.rules.SecurityRule;
 import io.micronaut.validation.Validated;
 import jakarta.inject.Inject;
 
 import javax.validation.Valid;
 
 @Controller
+@Secured(SecurityRule.IS_AUTHENTICATED)
 //@RequestMapping(produces = { MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE })
 @Validated //required for @Valid on method parameters such as @RequestParam, @PathVariable, @RequestHeader
 public class PersonEndpoint /*extends BaseEndpoint*/ {
@@ -26,20 +29,19 @@ public class PersonEndpoint /*extends BaseEndpoint*/ {
     static final String HEADER_TOKEN = "token";
     static final String HEADER_USER_ID = "userId";
 
-    static final String PERSON_READ_PERMISSION = "person-read";
-    static final String PERSON_WRITE_PERMISSION = "person-write";
+    public static final String PERSON_READ_PERMISSION = "person-read";
+    public static final String PERSON_WRITE_PERMISSION = "person-write";
 
     static final String ID = "id";
     static final String GET_ALL = "/v1/persons";
-    static final String GET_BY_ID = "/v1/person/{" + ID + "}";
+    static final String BY_ID = "/v1/person/{" + ID + "}";
 
     @Inject
     PersonService personService;
 
-    //todo: JWT security
     //todo: swagger
 
-    //	@PreAuthorize("hasAuthority('SCOPE_" + PERSON_READ_PERMISSION + "')")
+    @Secured(PERSON_READ_PERMISSION)
     @Get(GET_ALL)
 //	@Operation(
 //			summary = "Get all persons",
@@ -61,8 +63,8 @@ public class PersonEndpoint /*extends BaseEndpoint*/ {
         return persons;
     }
 
-    //	@PreAuthorize("hasAuthority('SCOPE_" + PERSON_READ_PERMISSION + "')")
-    @Get(GET_BY_ID)
+    @Secured(PERSON_READ_PERMISSION)
+    @Get(BY_ID)
 //	@Operation(
 //			summary = "Get person by id",
 //			description = "Returns person for id specified.")
@@ -74,7 +76,7 @@ public class PersonEndpoint /*extends BaseEndpoint*/ {
     }
 
     //	@PreAuthorize("hasAuthority('SCOPE_" + PERSON_WRITE_PERMISSION + "')")
-    @Put(uri = GET_BY_ID, consumes = {MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
+    @Put(uri = BY_ID, consumes = {MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
 //    @Operation(
 //            summary = "Create new or update existing person",
 //            description = "Creates new or updates existing person. Returns created/updated person with id.")

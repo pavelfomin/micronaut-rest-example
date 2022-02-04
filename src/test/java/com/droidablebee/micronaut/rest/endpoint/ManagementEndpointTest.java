@@ -8,7 +8,6 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MediaType;
-import io.micronaut.security.authentication.UsernamePasswordCredentials;
 import io.micronaut.security.token.jwt.render.BearerAccessRefreshToken;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import net.minidev.json.JSONArray;
@@ -19,6 +18,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.List;
 
+import static com.droidablebee.micronaut.rest.security.AuthenticationProviderUserPassword.USER_WITHOUT_ROLES;
 import static io.micronaut.http.HttpRequest.GET;
 import static io.micronaut.http.HttpRequest.POST;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -88,7 +88,7 @@ class ManagementEndpointTest extends BaseEndpointTest {
     @Test
     void getHealthAuthorized() {
 
-        BearerAccessRefreshToken refreshToken = loginAndAssert(new UsernamePasswordCredentials(username, password));
+        BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITHOUT_ROLES));
 
         HttpResponse<String> response = client.toBlocking().exchange(
                 GET("/management/health").bearerAuth(refreshToken.getAccessToken()),
@@ -150,7 +150,7 @@ class ManagementEndpointTest extends BaseEndpointTest {
     @Test
     void getEnvAuthorized() {
 
-        BearerAccessRefreshToken refreshToken = loginAndAssert(new UsernamePasswordCredentials(username, password));
+        BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITHOUT_ROLES));
 
         HttpResponse<String> response = client.toBlocking().exchange(
                 GET("/management/env").bearerAuth(refreshToken.getAccessToken()),
@@ -266,7 +266,7 @@ class ManagementEndpointTest extends BaseEndpointTest {
 
         String payload = "{ \"configuredLevel\": \"ERROR\" }";
 
-        BearerAccessRefreshToken refreshToken = loginAndAssert(new UsernamePasswordCredentials(username, password));
+        BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITHOUT_ROLES));
 
         HttpResponse<String> response = client.toBlocking().exchange(
                 POST("/management/loggers/" + logger, payload).bearerAuth(refreshToken.getAccessToken()),

@@ -1,5 +1,6 @@
 package com.droidablebee.micronaut.rest.endpoint;
 
+import com.droidablebee.micronaut.rest.security.AuthenticationProviderUserPassword.User;
 import io.micronaut.context.annotation.Value;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
@@ -21,9 +22,6 @@ abstract class BaseEndpointTest {
 
     @Value("${micronaut.application.name}")
     String applicationName;
-
-    String username = "sherlock";
-    String password = "password";
 
     /**
      * Returns a BearerAccessRefreshToken.
@@ -50,6 +48,11 @@ abstract class BaseEndpointTest {
         );
 
         return response;
+    }
+
+    protected UsernamePasswordCredentials createCredentials(User user) {
+
+        return new UsernamePasswordCredentials(user.getUsername(), user.getPassword());
     }
 
 }
