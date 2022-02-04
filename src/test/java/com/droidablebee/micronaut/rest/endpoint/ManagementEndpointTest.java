@@ -5,20 +5,22 @@ import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.Option;
 import com.jayway.jsonpath.ReadContext;
 import io.micronaut.core.type.Argument;
-import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MediaType;
-import io.micronaut.http.client.HttpClient;
-import io.micronaut.http.client.annotation.Client;
+import io.micronaut.security.token.jwt.render.BearerAccessRefreshToken;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
-import jakarta.inject.Inject;
 import net.minidev.json.JSONArray;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.util.List;
+
+import static com.droidablebee.micronaut.rest.security.AuthenticationProviderUserPassword.USER_WITHOUT_ROLES;
+import static io.micronaut.http.HttpRequest.GET;
+import static io.micronaut.http.HttpRequest.POST;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
@@ -32,11 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * See https://github.com/micronaut-projects/micronaut-core/blob/7ca6534245959979139fbf7440b57c8d14b7669c/http-client/src/main/java/io/micronaut/http/client/netty/DefaultHttpClient.java#L2409
  */
 @MicronautTest
-class ManagementEndpointTest {
-
-    @Inject
-    @Client("/")
-    HttpClient client;
+class ManagementEndpointTest extends BaseEndpointTest {
 
     /**
      * https://docs.micronaut.io/latest/guide/#infoEndpoint
@@ -45,7 +43,7 @@ class ManagementEndpointTest {
     void getInfo() {
 
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.GET("/management/info"),
+                GET("/management/info"),
                 Argument.of(String.class),
                 Argument.of(String.class)
         );
@@ -58,7 +56,7 @@ class ManagementEndpointTest {
 
         assertThat(ctx.read("$.build"), isA(Object.class));
         assertThat(ctx.read("$.build.version"), isA(String.class));
-        assertThat(ctx.read("$.build.name"), is("micronaut-rest-example"));
+        assertThat(ctx.read("$.build.name"), is(applicationName));
         assertThat(ctx.read("$.build.group"), is("com.droidablebee"));
         assertThat(ctx.read("$.build.time"), isA(String.class));
     }
@@ -70,7 +68,7 @@ class ManagementEndpointTest {
     void getHealth() {
 
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.GET("/management/health"),
+                GET("/management/health"),
                 Argument.of(String.class),
                 Argument.of(String.class)
         );
@@ -82,38 +80,57 @@ class ManagementEndpointTest {
         ReadContext ctx = JsonPath.parse(response.body(),
                 Configuration.defaultConfiguration().addOptions(Option.SUPPRESS_EXCEPTIONS));
 
+        assertThat(ctx.read("$.size()"), is(1));
         assertThat(ctx.read("$.status"), is("UP"));
         assertThat(ctx.read("$.details"), nullValue());
     }
 
-//    @Test
-//     void getHealthAuthorized() throws Exception {
-//
-//        mockMvc.perform(get("/actuator/health").with(jwt()))
-//                .andDo(print())
-//                .andExpect(status().isOk())
-//                .andExpect(content().contentType(JSON_MEDIA_TYPE))
-//                .andExpect(jsonPath("$.status", is("UP")))
-//                .andExpect(jsonPath("$.components").doesNotExist())
-//        ;
-//    }
+    @Test
+    void getHealthAuthorized() {
 
-//    @Test
-//     void getHealthAuthorizedWithConfiguredRole() throws Exception {
-//
-//        mockMvc.perform(get("/actuator/health").with(jwtWithScope("health-details")))
-//                .andDo(print())
-//                .andExpect(status().isOk())
-//                .andExpect(content().contentType(JSON_MEDIA_TYPE))
-//                .andExpect(jsonPath("$.status", is("UP")))
-//                .andExpect(jsonPath("$.components", isA(Object.class)))
-//                .andExpect(jsonPath("$.components.diskSpace.status", is("UP")))
-//                .andExpect(jsonPath("$.components.diskSpace.details", isA(Object.class)))
-//                .andExpect(jsonPath("$.components.db.status", is("UP")))
-//                .andExpect(jsonPath("$.components.db.details", isA(Object.class)))
-//                .andExpect(jsonPath("$.components.ping.status", is("UP")))
-//        ;
-//    }
+        BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITHOUT_ROLES));
+
+        HttpResponse<String> response = client.toBlocking().exchange(
+                GET("/management/health").bearerAuth(refreshToken.getAccessToken()),
+                Argument.of(String.class),
+                Argument.of(String.class)
+        );
+
+        assertEquals(HttpStatus.OK, response.getStatus());
+        assertTrue(response.getContentType().isPresent());
+        assertEquals(MediaType.APPLICATION_JSON_TYPE, response.getContentType().get());
+
+        ReadContext ctx = JsonPath.parse(response.body(),
+                Configuration.defaultConfiguration().addOptions(Option.SUPPRESS_EXCEPTIONS));
+
+        assertThat(ctx.read("$.name"), is(applicationName));
+        assertThat(ctx.read("$.status"), is("UP"));
+        assertThat(ctx.read("$.details"), isA(Object.class));
+        assertThat(ctx.read("$.details.diskSpace"), isA(Object.class));
+        assertThat(ctx.read("$.details.diskSpace.name"), is(applicationName));
+        assertThat(ctx.read("$.details.diskSpace.status"), is("UP"));
+        assertThat(ctx.read("$.details.diskSpace.details"), isA(Object.class));
+        assertThat(ctx.read("$.details.jdbc"), isA(Object.class));
+        assertThat(ctx.read("$.details.jdbc.name"), is(applicationName));
+        assertThat(ctx.read("$.details.jdbc.status"), is("UP"));
+        assertThat(ctx.read("$.details.jdbc.details"), isA(Object.class));
+        assertThat(ctx.read("$.details.service"), isA(Object.class));
+        assertThat(ctx.read("$.details.service.name"), is(applicationName));
+        assertThat(ctx.read("$.details.service.status"), is("UP"));
+        assertThat(ctx.read("$.details.service.details"), nullValue());
+//        assertThat(ctx.read("$.details.compositeDiscoveryClient()"), isA(Object.class));
+//        assertThat(ctx.read("$.details.compositeDiscoveryClient().name"), is(applicationName));
+//        assertThat(ctx.read("$.details.compositeDiscoveryClient().status"), is("UP"));
+//        assertThat(ctx.read("$.details.compositeDiscoveryClient().details"), nullValue());
+    }
+
+    /**
+     * See https://docs.micronaut.io/latest/api/io/micronaut/management/endpoint/health/DetailsVisibility.html.
+     */
+    @Test
+    @Disabled("Only `AUTHENTICATED` is supported by micronaut, not authorized with a specific role like in Spring Boot")
+    void getHealthAuthorizedWithConfiguredRole() {
+    }
 
     /**
      * https://docs.micronaut.io/latest/guide/#environmentEndpoint
@@ -122,7 +139,7 @@ class ManagementEndpointTest {
     void getEnv() {
 
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.GET("/management/env"),
+                GET("/management/env"),
                 Argument.of(String.class),
                 Argument.of(String.class)
         );
@@ -130,17 +147,31 @@ class ManagementEndpointTest {
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatus());
     }
 
-//    @Test
-//     void getEnvAuthorized() throws Exception {
-//
-//        mockMvc.perform(get("/actuator/env").with(jwt()))
-//                .andDo(print())
-//                .andExpect(status().isOk())
-//                .andExpect(content().contentType(JSON_MEDIA_TYPE))
-//                .andExpect(jsonPath("$.activeProfiles", isA(JSONArray.class)))
-//                .andExpect(jsonPath("$.propertySources", isA(JSONArray.class)))
-//        ;
-//    }
+    @Test
+    void getEnvAuthorized() {
+
+        BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITHOUT_ROLES));
+
+        HttpResponse<String> response = client.toBlocking().exchange(
+                GET("/management/env").bearerAuth(refreshToken.getAccessToken()),
+                Argument.of(String.class),
+                Argument.of(String.class)
+        );
+
+        assertEquals(HttpStatus.OK, response.getStatus());
+        assertTrue(response.getContentType().isPresent());
+        assertEquals(MediaType.APPLICATION_JSON_TYPE, response.getContentType().get());
+
+        ReadContext ctx = JsonPath.parse(response.body());
+
+        assertThat(ctx.read("$.activeEnvironments"), isA(JSONArray.class));
+        assertThat(ctx.read("$.activeEnvironments.size()"), is(1));
+        assertThat(ctx.read("$.activeEnvironments"), is(List.of("test")));
+        assertThat(ctx.read("$.packages"), isA(JSONArray.class));
+        assertThat(ctx.read("$.packages.size()"), is(2));
+        assertThat(ctx.read("$.propertySources"), isA(JSONArray.class));
+        assertThat(ctx.read("$.packages.size()"), greaterThan(1));
+    }
 
 //    @Test
 //     void getCustom() throws Exception {
@@ -162,11 +193,14 @@ class ManagementEndpointTest {
 //        ;
 //    }
 
+    /**
+     * https://docs.micronaut.io/latest/guide/#loggersEndpoint
+     */
     @Test
     void getLoggers() {
 
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.GET("/management/loggers"),
+                GET("/management/loggers"),
                 Argument.of(String.class),
                 Argument.of(String.class)
         );
@@ -193,7 +227,7 @@ class ManagementEndpointTest {
     void getSpecificLogger(String logger, String configured, String effective) {
 
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.GET("/management/loggers/" + logger),
+                GET("/management/loggers/" + logger),
                 Argument.of(String.class),
                 Argument.of(String.class)
         );
@@ -215,7 +249,7 @@ class ManagementEndpointTest {
         String payload = "{ \"configuredLevel\": \"ERROR\" }";
 
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.POST("/management/loggers/com.droidablebee.test", payload),
+                POST("/management/loggers/com.droidablebee.test", payload),
                 Argument.of(String.class),
                 Argument.of(String.class)
         );
@@ -224,7 +258,6 @@ class ManagementEndpointTest {
     }
 
     @Test()
-    @Disabled("add authorization")
     void setSpecificLoggerLevelAuthorized() {
 
         String logger = "com.droidablebee.test";
@@ -233,8 +266,10 @@ class ManagementEndpointTest {
 
         String payload = "{ \"configuredLevel\": \"ERROR\" }";
 
+        BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITHOUT_ROLES));
+
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.POST("/management/loggers/" + logger, payload),
+                POST("/management/loggers/" + logger, payload).bearerAuth(refreshToken.getAccessToken()),
                 Argument.of(String.class),
                 Argument.of(String.class)
         );

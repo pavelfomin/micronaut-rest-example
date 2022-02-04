@@ -24,7 +24,7 @@ class PersonRepositoryITest {
     EntityManager entityManager;
 
     @Test
-    public void getReferenceUsingEntityManager() {
+    void getReferenceUsingEntityManager() {
 
         Person person = entityManager.getReference(Person.class, Long.MAX_VALUE);
         assertNotNull(person);
@@ -36,7 +36,7 @@ class PersonRepositoryITest {
     }
 
     @Test
-    public void findByIdUsingOptional() {
+    void findByIdUsingOptional() {
 
         Optional<Person> optional = personRepository.findById(Long.MAX_VALUE);
         assertNotNull(optional);
@@ -45,7 +45,7 @@ class PersonRepositoryITest {
     }
 
     @Test
-    public void findByIdUsingEntityManager() {
+    void findByIdUsingEntityManager() {
 
         Person person = entityManager.find(Person.class, Long.MAX_VALUE);
         assertNull(person);

@@ -6,13 +6,21 @@ micronaut:
 #      exception-on-error-status: false
     client:
       exception-on-error-status: false
+  security:
+    authentication: bearer
+    token:
+      jwt:
+        signatures:
+          secret:
+            generator:
+              secret: pleaseChangeThisSecretForANewOne
 
 endpoints:
   all.path: /management
   info:
     sensitive: false
   health:
-#    details-visible: ANONYMOUS
+  #    details-visible: ANONYMOUS
   env:
     enabled: true
   loggers:
