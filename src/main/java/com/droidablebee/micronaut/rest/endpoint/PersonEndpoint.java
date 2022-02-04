@@ -12,7 +12,7 @@ import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Header;
 import io.micronaut.http.annotation.PathVariable;
-import io.micronaut.http.annotation.Put;
+import io.micronaut.http.annotation.Post;
 import io.micronaut.security.annotation.Secured;
 import io.micronaut.security.rules.SecurityRule;
 import io.micronaut.validation.Validated;
@@ -33,8 +33,8 @@ public class PersonEndpoint /*extends BaseEndpoint*/ {
     public static final String PERSON_WRITE_PERMISSION = "person-write";
 
     static final String ID = "id";
-    static final String GET_ALL = "/v1/persons";
-    static final String BY_ID = "/v1/person/{" + ID + "}";
+    static final String PERSON = "/v1/person";
+    static final String PERSON_BY_ID = "/v1/person/{" + ID + "}";
 
     @Inject
     PersonService personService;
@@ -42,7 +42,7 @@ public class PersonEndpoint /*extends BaseEndpoint*/ {
     //todo: swagger
 
     @Secured(PERSON_READ_PERMISSION)
-    @Get(GET_ALL)
+    @Get(PERSON)
 //	@Operation(
 //			summary = "Get all persons",
 //			description = "Returns first N persons specified by the size parameter with page offset specified by page parameter.")
@@ -64,7 +64,7 @@ public class PersonEndpoint /*extends BaseEndpoint*/ {
     }
 
     @Secured(PERSON_READ_PERMISSION)
-    @Get(BY_ID)
+    @Get(PERSON_BY_ID)
 //	@Operation(
 //			summary = "Get person by id",
 //			description = "Returns person for id specified.")
@@ -75,15 +75,15 @@ public class PersonEndpoint /*extends BaseEndpoint*/ {
         return (person == null ? HttpResponse.status(HttpStatus.NOT_FOUND) : HttpResponse.ok()).body(person);
     }
 
-    //	@PreAuthorize("hasAuthority('SCOPE_" + PERSON_WRITE_PERMISSION + "')")
-    @Put(uri = BY_ID, consumes = {MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
+    @Secured(PERSON_WRITE_PERMISSION)
+    @Post(uri = PERSON, consumes = {MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
 //    @Operation(
 //            summary = "Create new or update existing person",
 //            description = "Creates new or updates existing person. Returns created/updated person with id.")
     public HttpResponse<Person> add(
             @Valid @Body Person person,
             /*@Valid @Size(max = 40, min = 8, message = "user id size 8-40")*/ @Header(name = HEADER_USER_ID) String userId,
-            /*@Valid @Size(max = 40, min = 2, message = "token size 2-40")*/ @Header(name = HEADER_TOKEN/*, required = false*/) String token) {
+            /*@Valid @Size(max = 40, min = 2, message = "token size 2-40")*/ @Header(name = HEADER_TOKEN, defaultValue = "") String token) {
 
         person = personService.save(person);
         return HttpResponse.ok().body(person);

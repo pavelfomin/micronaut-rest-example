@@ -1,6 +1,7 @@
 package com.droidablebee.micronaut.rest.endpoint;
 
 import com.droidablebee.micronaut.rest.security.AuthenticationProviderUserPassword.User;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micronaut.context.annotation.Value;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
@@ -9,6 +10,8 @@ import io.micronaut.http.client.annotation.Client;
 import io.micronaut.security.authentication.UsernamePasswordCredentials;
 import io.micronaut.security.token.jwt.render.BearerAccessRefreshToken;
 import jakarta.inject.Inject;
+
+import java.io.IOException;
 
 import static io.micronaut.http.HttpRequest.POST;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -19,6 +22,9 @@ abstract class BaseEndpointTest {
     @Inject
     @Client("/")
     HttpClient client;
+
+    @Inject
+    ObjectMapper objectMapper;
 
     @Value("${micronaut.application.name}")
     String applicationName;
@@ -55,4 +61,14 @@ abstract class BaseEndpointTest {
         return new UsernamePasswordCredentials(user.getUsername(), user.getPassword());
     }
 
+    /**
+     * Returns json representation of the object.
+     * @param o instance
+     * @return json
+     * @throws IOException
+     */
+    protected String json(Object o) throws IOException {
+
+        return objectMapper.writeValueAsString(o);
+    }
 }
