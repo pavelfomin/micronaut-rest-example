@@ -35,4 +35,12 @@ public class PersonService {
 		
 		return repository.saveAndFlush(person);
 	}
+
+	public Person update(Person person) {
+
+		Person updated = repository.update(person);
+		repository.flush();
+
+		return updated;
+	}
 }

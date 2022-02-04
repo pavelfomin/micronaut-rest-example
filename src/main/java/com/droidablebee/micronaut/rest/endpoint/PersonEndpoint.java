@@ -13,6 +13,7 @@ import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Header;
 import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Post;
+import io.micronaut.http.annotation.Put;
 import io.micronaut.security.annotation.Secured;
 import io.micronaut.security.rules.SecurityRule;
 import io.micronaut.validation.Validated;
@@ -87,6 +88,35 @@ public class PersonEndpoint /*extends BaseEndpoint*/ {
 
         person = personService.save(person);
         return HttpResponse.ok().body(person);
+    }
+
+    @Secured(PERSON_WRITE_PERMISSION)
+    @Put(uri = PERSON_BY_ID, consumes = {MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
+//    @Operation(
+//            summary = "Update existing person",
+//            description = "Updates existing person. Returns updated person.")
+    public HttpResponse<?> update(
+            @PathVariable(ID) Long id,
+            @Valid @Body Person person,
+            /*@Valid @Size(max = 40, min = 8, message = "user id size 8-40")*/ @Header(name = HEADER_USER_ID) String userId,
+            /*@Valid @Size(max = 40, min = 2, message = "token size 2-40")*/ @Header(name = HEADER_TOKEN, defaultValue = "") String token) {
+
+        HttpResponse<?> httpResponse;
+
+        Person found = personService.findOne(id);
+        if (found == null) {
+            httpResponse = HttpResponse.notFound();
+        } else {
+            found.setFirstName(person.getFirstName());
+            found.setLastName(person.getLastName());
+            found.setMiddleName(person.getMiddleName());
+            found.setAddresses(person.getAddresses());
+
+            person = personService.update(found);
+            httpResponse = HttpResponse.ok().body(person);
+        }
+
+        return httpResponse;
     }
 
 //    @InitBinder("person")

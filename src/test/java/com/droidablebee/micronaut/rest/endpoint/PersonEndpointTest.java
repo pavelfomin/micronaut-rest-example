@@ -27,9 +27,13 @@ import java.util.Date;
 import java.util.UUID;
 
 import static com.droidablebee.micronaut.rest.endpoint.PersonEndpoint.PERSON;
+import static com.droidablebee.micronaut.rest.endpoint.PersonEndpoint.PERSON_BY_ID;
 import static com.droidablebee.micronaut.rest.security.AuthenticationProviderUserPassword.USER_WITHOUT_ROLES;
 import static com.droidablebee.micronaut.rest.security.AuthenticationProviderUserPassword.USER_WITH_READ_ROLE;
 import static com.droidablebee.micronaut.rest.security.AuthenticationProviderUserPassword.USER_WITH_WRITE_ROLE;
+import static io.micronaut.http.HttpRequest.GET;
+import static io.micronaut.http.HttpRequest.POST;
+import static io.micronaut.http.HttpRequest.PUT;
 import static java.util.Collections.singletonMap;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -92,7 +96,7 @@ class PersonEndpointTest extends BaseEndpointTest {
     void getPersonInvalidRoute() {
 
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.GET(PERSON + "invalid"),
+                GET(PERSON + "invalid"),
                 Argument.of(String.class),
                 Argument.of(String.class)
         );
@@ -105,9 +109,9 @@ class PersonEndpointTest extends BaseEndpointTest {
 
         Long id = testPerson.getId();
 
-        URI uri = UriBuilder.of(PersonEndpoint.PERSON_BY_ID).expand(singletonMap(PersonEndpoint.ID, id));
+        URI uri = UriBuilder.of(PERSON_BY_ID).expand(singletonMap(PersonEndpoint.ID, id));
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.GET(uri),
+                GET(uri),
                 Argument.of(String.class),
                 Argument.of(String.class)
         );
@@ -122,9 +126,9 @@ class PersonEndpointTest extends BaseEndpointTest {
 
         BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITHOUT_ROLES));
 
-        URI uri = UriBuilder.of(PersonEndpoint.PERSON_BY_ID).expand(singletonMap(PersonEndpoint.ID, id));
+        URI uri = UriBuilder.of(PERSON_BY_ID).expand(singletonMap(PersonEndpoint.ID, id));
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.GET(uri).bearerAuth(refreshToken.getAccessToken()),
+                GET(uri).bearerAuth(refreshToken.getAccessToken()),
                 Argument.of(String.class),
                 Argument.of(String.class)
         );
@@ -139,9 +143,9 @@ class PersonEndpointTest extends BaseEndpointTest {
 
         BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITH_READ_ROLE));
 
-        URI uri = UriBuilder.of(PersonEndpoint.PERSON_BY_ID).expand(singletonMap(PersonEndpoint.ID, id));
+        URI uri = UriBuilder.of(PERSON_BY_ID).expand(singletonMap(PersonEndpoint.ID, id));
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.GET(uri).bearerAuth(refreshToken.getAccessToken()),
+                GET(uri).bearerAuth(refreshToken.getAccessToken()),
                 Argument.of(String.class),
                 Argument.of(String.class)
         );
@@ -168,7 +172,7 @@ class PersonEndpointTest extends BaseEndpointTest {
         BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITH_READ_ROLE));
 
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.GET(PERSON).bearerAuth(refreshToken.getAccessToken()),
+                GET(PERSON).bearerAuth(refreshToken.getAccessToken()),
                 String.class
         );
 
@@ -192,7 +196,7 @@ class PersonEndpointTest extends BaseEndpointTest {
                 .build();
 
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.GET(uri).bearerAuth(refreshToken.getAccessToken()),
+                GET(uri).bearerAuth(refreshToken.getAccessToken()),
                 String.class
         );
 
@@ -217,7 +221,7 @@ class PersonEndpointTest extends BaseEndpointTest {
                 .build();
 
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.GET(uri).bearerAuth(refreshToken.getAccessToken()),
+                GET(uri).bearerAuth(refreshToken.getAccessToken()),
                 String.class
         );
 
@@ -237,7 +241,7 @@ class PersonEndpointTest extends BaseEndpointTest {
         String content = json(person);
 
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.POST(PERSON, content),
+                POST(PERSON, content),
                 Argument.of(String.class),
                 Argument.of(String.class)
         );
@@ -256,7 +260,7 @@ class PersonEndpointTest extends BaseEndpointTest {
         BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITH_READ_ROLE));
 
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.POST(PERSON, content).bearerAuth(refreshToken.getAccessToken()),
+                POST(PERSON, content).bearerAuth(refreshToken.getAccessToken()),
                 Argument.of(String.class),
                 Argument.of(String.class)
         );
@@ -275,7 +279,80 @@ class PersonEndpointTest extends BaseEndpointTest {
         BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITH_WRITE_ROLE));
 
         HttpResponse<String> response = client.toBlocking().exchange(
-                HttpRequest.POST(PERSON, content)
+                POST(PERSON, content)
+                        .bearerAuth(refreshToken.getAccessToken())
+                        .header(PersonEndpoint.HEADER_USER_ID, UUID.randomUUID().toString()),
+                Argument.of(String.class),
+                Argument.of(String.class)
+        );
+
+        assertEquals(HttpStatus.OK, response.getStatus());
+        assertTrue(response.getContentType().isPresent());
+        assertEquals(MediaType.APPLICATION_JSON_TYPE, response.getContentType().get());
+
+        ReadContext ctx = JsonPath.parse(response.body());
+
+        assertThat(ctx.read("$"), isA(Object.class));
+        assertThat(ctx.read("$.id"), isA(Number.class));
+        assertThat(ctx.read("$.firstName"), is(person.getFirstName()));
+        assertThat(ctx.read("$.lastName"), is(person.getLastName()));
+        assertThat(ctx.read("$.dateOfBirth"), isA(Number.class));
+        assertThat(ctx.read("$.dateOfBirth"), is(person.getDateOfBirth().getTime()));
+    }
+
+    @Test
+    public void updatePersonUnauthorized() throws Exception {
+
+        Person person = createPerson("first", "last");
+        person.setMiddleName("middleName");
+
+        String content = json(person);
+
+        URI uri = UriBuilder.of(PERSON_BY_ID).expand(singletonMap(PersonEndpoint.ID, person.getId()));
+        HttpResponse<String> response = client.toBlocking().exchange(
+                PUT(uri, content),
+                Argument.of(String.class),
+                Argument.of(String.class)
+        );
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatus());
+    }
+
+    @Test
+    public void updatePersonForbiddenInvalidScope() throws Exception {
+
+        Person person = createPerson("first", "last");
+        person.setMiddleName("middleName");
+
+        String content = json(person);
+
+        BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITH_READ_ROLE));
+
+        URI uri = UriBuilder.of(PERSON_BY_ID).expand(singletonMap(PersonEndpoint.ID, person.getId()));
+        HttpResponse<String> response = client.toBlocking().exchange(
+                PUT(uri, content).bearerAuth(refreshToken.getAccessToken()),
+                Argument.of(String.class),
+                Argument.of(String.class)
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatus());
+    }
+
+    @Test
+    public void updatePerson() throws Exception {
+
+        Person person = testPerson;
+        person.setFirstName("first");
+        person.setLastName("last");
+        person.setMiddleName("middleName");
+
+        String content = json(person);
+
+        BearerAccessRefreshToken refreshToken = loginAndAssert(createCredentials(USER_WITH_WRITE_ROLE));
+
+        URI uri = UriBuilder.of(PERSON_BY_ID).expand(singletonMap(PersonEndpoint.ID, person.getId()));
+        HttpResponse<String> response = client.toBlocking().exchange(
+                PUT(uri, content)
                         .bearerAuth(refreshToken.getAccessToken())
                         .header(PersonEndpoint.HEADER_USER_ID, UUID.randomUUID().toString()),
                 Argument.of(String.class),
